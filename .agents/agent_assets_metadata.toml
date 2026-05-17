@@ -1,0 +1,181 @@
+uploads = []
+
+[[generated]]
+id = "4uumXC8siynGibDDciUyA"
+uri = "file://artifacts/dashboard/public/images/chars/char_1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4Wg-UHV8RmRmXBy-YhCM5"
+uri = "file://artifacts/dashboard/public/images/chars/char_202.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "aiKKH8E4sfBr8PgHlYdZ3"
+uri = "file://artifacts/dashboard/public/images/chars/char_135.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "B4oDCLsb3IIGPZDEkm3f7"
+uri = "file://artifacts/dashboard/public/images/chars/char_645.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "YzFL1NWsbcryqKvrzsc65"
+uri = "file://artifacts/dashboard/public/images/chars/char_771.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "0Gpsr-Dzvt-4Juz1wvEDX"
+uri = "file://artifacts/dashboard/public/images/chars/char_457.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "7n0akxEcZ9fh77ZifGYCw"
+uri = "file://artifacts/dashboard/public/images/chars/char_330.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "c5dKM2uOo6FwhpVL7_pVQ"
+uri = "file://artifacts/dashboard/public/images/chars/char_393.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "MQP8vGT9RduzPLBFuDhXZ"
+uri = "file://artifacts/dashboard/public/images/chars/char_1082.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "QMsAH7DBmpPUDbHd2dBWD"
+uri = "file://artifacts/dashboard/public/images/chars/char_69.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "UzLWRTIgDbwHld_0YlJm2"
+uri = "file://artifacts/dashboard/public/images/chars/char_646.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "V1V4pZYQkMqKJtTmuWBGw"
+uri = "file://artifacts/dashboard/public/images/chars/char_2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ltK_-its8gVLrUbgfoZkY"
+uri = "file://artifacts/dashboard/public/images/chars/char_5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "fTFeFBTWf381yoj_4rzet"
+uri = "file://artifacts/dashboard/public/images/chars/char_3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "GOtfWdZu92Wy79qRnuSrH"
+uri = "file://artifacts/dashboard/public/images/chars/char_203.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "S6NuBNWvLmMUTzrI2QfjK"
+uri = "file://artifacts/dashboard/public/images/chars/char_136.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "2nBrDNfO5k8sI36e32n2c"
+uri = "file://artifacts/dashboard/public/images/chars/char_266.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "fUcYnPmt4Vdxx7dEkLMYU"
+uri = "file://artifacts/dashboard/public/images/chars/char_1268.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "bUpOFwj84zixRw-wFqFHx"
+uri = "file://artifacts/dashboard/public/images/chars/char_394.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ahGMgXISyhrS-yYNNAVLG"
+uri = "file://artifacts/dashboard/public/images/chars/char_1807.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "Wwz2CNC4Or0jPoyel917T"
+uri = "file://artifacts/dashboard/public/images/chars/char_645.png"
+type = "image"
+title = "Ryomen Sukuna — SSS+ (JJK)"
+
+[[outputs]]
+id = "7Br48Hxy7myaXVgQNHkV5"
+uri = "file://artifacts/dashboard/public/images/chars/char_1.png"
+type = "image"
+title = "Kaguya Otsutsuki — SSS+ (Naruto)"
+
+[[outputs]]
+id = "G_7McEssU87vT2PRn_z_G"
+uri = "file://artifacts/dashboard/public/images/chars/char_69.png"
+type = "image"
+title = "Luffy Gear 5 — SSS+ (One Piece)"
+
+[[outputs]]
+id = "Yq9O4jLoqm-Bxl_n6oWxq"
+uri = "file://artifacts/dashboard/public/images/chars/char_771.png"
+type = "image"
+title = "Saitama — SSS+ (One Punch Man)"
+
+[[outputs]]
+id = "kTsJoIPfb4FDnuOCNluMK"
+uri = "file://artifacts/dashboard/public/images/chars/char_202.png"
+type = "image"
+title = "Yhwach — SSS+ (Bleach)"
+
+[[outputs]]
+id = "Wc-sS_M9NPAloFku0X22s"
+uri = "file://artifacts/dashboard/public/images/chars/char_135.png"
+type = "image"
+title = "Beerus — SSS+ (Dragon Ball)"
+
+[[outputs]]
+id = "WQbuY4eFeLXWrXT6VBeqb"
+uri = "file://artifacts/dashboard/public/images/chars/char_330.png"
+type = "image"
+title = "All Might — SSS+ (MHA)"
+
+[[outputs]]
+id = "lvFAoWocEQ44Dt3tcBYmZ"
+uri = "file://artifacts/dashboard/public/images/chars/char_393.png"
+type = "image"
+title = "Muzan Kibutsuji — SSS+ (Demon Slayer)"
+
+[[outputs]]
+id = "ixZdkyEOEsFeQ1lhDPhv7"
+uri = "file://artifacts/dashboard/public/images/chars/char_457.png"
+type = "image"
+title = "Meruem — SSS+ (HxH)"
+
+[[outputs]]
+id = "X9wpuKozWDgt_C9D4IIto"
+uri = "file://artifacts/dashboard/public/images/chars/char_1082.png"
+type = "image"
+title = "Gilgamesh — SSS+ (Fate)"

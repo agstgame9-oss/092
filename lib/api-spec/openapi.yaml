@@ -1,0 +1,1049 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Anime Multiverse Arena API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: dashboard
+    description: Dashboard overview stats
+  - name: players
+    description: Player management
+  - name: characters
+    description: Character management
+  - name: guilds
+    description: Guild management
+  - name: battles
+    description: Battle management
+  - name: market
+    description: Market listings
+  - name: tournaments
+    description: Tournament management
+  - name: bosses
+    description: Boss management
+  - name: admin
+    description: Admin operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get overview dashboard stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getDashboardActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Activity items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/charts:
+    get:
+      operationId: getDashboardCharts
+      tags: [dashboard]
+      summary: Get chart data (battles per day, new players, gold flow)
+      responses:
+        "200":
+          description: Chart data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCharts"
+
+  /players:
+    get:
+      operationId: getPlayers
+      tags: [players]
+      summary: List all players
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [level, gold, pvpRating, wins, createdAt]
+            default: level
+      responses:
+        "200":
+          description: Players list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayersPage"
+
+  /players/{discordId}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get player details
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Player detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerDetail"
+
+  /players/{discordId}/ban:
+    post:
+      operationId: banPlayer
+      tags: [players]
+      summary: Ban or unban a player
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanPlayerRequest"
+      responses:
+        "200":
+          description: Ban status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /players/{discordId}/modify:
+    post:
+      operationId: modifyPlayer
+      tags: [players]
+      summary: Modify player resources (gold, gems, xp)
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModifyPlayerRequest"
+      responses:
+        "200":
+          description: Player modified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /players/leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [players]
+      summary: Get top players leaderboard
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [level, pvpRating, wins, totalDamageDealt]
+            default: level
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /characters:
+    get:
+      operationId: getCharacters
+      tags: [characters]
+      summary: List all characters
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: rarity
+          in: query
+          schema:
+            type: string
+        - name: element
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Characters list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharactersPage"
+
+  /characters/rarity-distribution:
+    get:
+      operationId: getCharacterRarityDistribution
+      tags: [characters]
+      summary: Get character rarity distribution stats
+      responses:
+        "200":
+          description: Rarity distribution
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RarityCount"
+
+  /guilds:
+    get:
+      operationId: getGuilds
+      tags: [guilds]
+      summary: List all guilds
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guilds list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildsPage"
+
+  /guilds/{id}:
+    get:
+      operationId: getGuild
+      tags: [guilds]
+      summary: Get guild details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Guild detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildDetail"
+
+  /battles:
+    get:
+      operationId: getBattles
+      tags: [battles]
+      summary: List recent battles
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Battles list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BattlesPage"
+
+  /battles/stats:
+    get:
+      operationId: getBattleStats
+      tags: [battles]
+      summary: Get battle statistics by type
+      responses:
+        "200":
+          description: Battle stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BattleTypeStat"
+
+  /market/listings:
+    get:
+      operationId: getMarketListings
+      tags: [market]
+      summary: List market listings
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Market listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPage"
+
+  /market/stats:
+    get:
+      operationId: getMarketStats
+      tags: [market]
+      summary: Get market economy statistics
+      responses:
+        "200":
+          description: Market stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketStats"
+
+  /tournaments:
+    get:
+      operationId: getTournaments
+      tags: [tournaments]
+      summary: List tournaments
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tournaments list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentsPage"
+
+  /bosses:
+    get:
+      operationId: getBosses
+      tags: [bosses]
+      summary: List all bosses
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Bosses list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BossesPage"
+
+  /admin/logs:
+    get:
+      operationId: getAdminLogs
+      tags: [admin]
+      summary: Get admin action logs
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Admin logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLogsPage"
+
+  /admin/broadcast:
+    post:
+      operationId: broadcastAnnouncement
+      tags: [admin]
+      summary: Broadcast a game announcement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastRequest"
+      responses:
+        "200":
+          description: Broadcasted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success, message]
+
+    DashboardStats:
+      type: object
+      properties:
+        totalPlayers:
+          type: integer
+        activeBattles:
+          type: integer
+        totalGuilds:
+          type: integer
+        totalCharacters:
+          type: integer
+        totalBattlesToday:
+          type: integer
+        newPlayersToday:
+          type: integer
+        marketListingsActive:
+          type: integer
+        activeTournaments:
+          type: integer
+        totalGoldInCirculation:
+          type: integer
+        bannedPlayers:
+          type: integer
+      required:
+        - totalPlayers
+        - activeBattles
+        - totalGuilds
+        - totalCharacters
+        - totalBattlesToday
+        - newPlayersToday
+        - marketListingsActive
+        - activeTournaments
+        - totalGoldInCirculation
+        - bannedPlayers
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        timestamp:
+          type: string
+        playerUsername:
+          type: string
+      required: [id, type, description, timestamp]
+
+    DashboardCharts:
+      type: object
+      properties:
+        battlesPerDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartPoint"
+        newPlayersPerDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartPoint"
+        battleTypeDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/BattleTypeStat"
+        topRarityDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/RarityCount"
+      required: [battlesPerDay, newPlayersPerDay, battleTypeDistribution, topRarityDistribution]
+
+    ChartPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        value:
+          type: integer
+      required: [date, value]
+
+    PlayersPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    PlayerSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        discordId:
+          type: string
+        username:
+          type: string
+        level:
+          type: integer
+        gold:
+          type: integer
+        gems:
+          type: integer
+        pvpRating:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        isBanned:
+          type: boolean
+        currentWorld:
+          type: string
+        createdAt:
+          type: string
+      required: [id, discordId, username, level, gold, gems, pvpRating, wins, losses, isBanned, currentWorld, createdAt]
+
+    PlayerDetail:
+      type: object
+      properties:
+        player:
+          $ref: "#/components/schemas/PlayerSummary"
+        characterCount:
+          type: integer
+        totalDamageDealt:
+          type: integer
+        maxAbyssFloor:
+          type: integer
+        stamina:
+          type: integer
+        maxStamina:
+          type: integer
+        currentTitle:
+          type: string
+      required: [player, characterCount, totalDamageDealt, maxAbyssFloor, stamina, maxStamina]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        discordId:
+          type: string
+        username:
+          type: string
+        value:
+          type: integer
+        level:
+          type: integer
+      required: [rank, discordId, username, value, level]
+
+    BanPlayerRequest:
+      type: object
+      properties:
+        ban:
+          type: boolean
+        reason:
+          type: string
+      required: [ban]
+
+    ModifyPlayerRequest:
+      type: object
+      properties:
+        gold:
+          type: integer
+        gems:
+          type: integer
+        xp:
+          type: integer
+        reason:
+          type: string
+
+    CharactersPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CharacterSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    CharacterSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        animeSource:
+          type: string
+        rarity:
+          type: string
+        element1:
+          type: string
+        element2:
+          type: string
+        baseHp:
+          type: integer
+        baseAtk:
+          type: integer
+        baseDef:
+          type: integer
+        baseSpd:
+          type: integer
+        isEnabled:
+          type: boolean
+      required: [id, name, animeSource, rarity, element1, baseHp, baseAtk, baseDef, baseSpd, isEnabled]
+
+    RarityCount:
+      type: object
+      properties:
+        rarity:
+          type: string
+        count:
+          type: integer
+      required: [rarity, count]
+
+    GuildsPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuildSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    GuildSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tag:
+          type: string
+        emblem:
+          type: string
+        level:
+          type: integer
+        memberCount:
+          type: integer
+        maxMembers:
+          type: integer
+        treasury:
+          type: integer
+        totalWins:
+          type: integer
+        totalBossKills:
+          type: integer
+        isOpen:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, name, tag, emblem, level, memberCount, maxMembers, treasury, totalWins, totalBossKills, isOpen, createdAt]
+
+    GuildDetail:
+      type: object
+      properties:
+        guild:
+          $ref: "#/components/schemas/GuildSummary"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuildMemberSummary"
+      required: [guild, members]
+
+    GuildMemberSummary:
+      type: object
+      properties:
+        discordId:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+        contribution:
+          type: integer
+        joinedAt:
+          type: string
+      required: [discordId, username, role, contribution, joinedAt]
+
+    BattlesPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BattleSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    BattleSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        status:
+          type: string
+        player1DiscordId:
+          type: string
+        player2DiscordId:
+          type: string
+        winnerId:
+          type: string
+        turnNumber:
+          type: integer
+        xpEarned:
+          type: integer
+        goldEarned:
+          type: integer
+        createdAt:
+          type: string
+      required: [id, type, status, player1DiscordId, turnNumber, createdAt]
+
+    BattleTypeStat:
+      type: object
+      properties:
+        type:
+          type: string
+        count:
+          type: integer
+      required: [type, count]
+
+    MarketPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketListingSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    MarketListingSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        sellerUsername:
+          type: string
+        itemName:
+          type: string
+        itemRarity:
+          type: string
+        itemType:
+          type: string
+        listingType:
+          type: string
+        price:
+          type: integer
+        quantity:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+      required: [id, sellerUsername, itemName, itemRarity, itemType, listingType, price, quantity, status, createdAt]
+
+    MarketStats:
+      type: object
+      properties:
+        totalVolume:
+          type: integer
+        activeListings:
+          type: integer
+        soldToday:
+          type: integer
+        avgPrice:
+          type: integer
+        topSellers:
+          type: array
+          items:
+            type: object
+            properties:
+              username:
+                type: string
+              salesCount:
+                type: integer
+            required: [username, salesCount]
+      required: [totalVolume, activeListings, soldToday, avgPrice, topSellers]
+
+    TournamentsPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TournamentSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    TournamentSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+        size:
+          type: integer
+        currentRound:
+          type: integer
+        totalRounds:
+          type: integer
+        prizePool:
+          type: integer
+        winnerUsername:
+          type: string
+        createdAt:
+          type: string
+      required: [id, name, status, size, currentRound, totalRounds, prizePool, createdAt]
+
+    BossesPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BossSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    BossSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        title:
+          type: string
+        animeSource:
+          type: string
+        element1:
+          type: string
+        tier:
+          type: string
+        hp:
+          type: integer
+        isWorldBoss:
+          type: boolean
+        isAbyssBoss:
+          type: boolean
+        isEnabled:
+          type: boolean
+      required: [id, name, title, animeSource, element1, tier, hp, isWorldBoss, isAbyssBoss, isEnabled]
+
+    AdminLogsPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminLogEntry"
+        total:
+          type: integer
+        page:
+          type: integer
+        totalPages:
+          type: integer
+      required: [data, total, page, totalPages]
+
+    AdminLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        adminUsername:
+          type: string
+        action:
+          type: string
+        targetUsername:
+          type: string
+        details:
+          type: string
+        reason:
+          type: string
+        createdAt:
+          type: string
+      required: [id, adminUsername, action, createdAt]
+
+    BroadcastRequest:
+      type: object
+      properties:
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, warning, event, maintenance]
+      required: [message, type]
