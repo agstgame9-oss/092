@@ -143,6 +143,14 @@ const DAILY_GOLD = 500;
 const DAILY_GEMS = 10;
 const DAILY_STAMINA = 60;
 
+const STREAK_MILESTONE_GEMS: Record<number, number> = {
+  3: 5, 7: 10, 14: 20, 30: 50, 60: 100,
+};
+
+function todayDateStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export async function actionDaily(interaction: AnyInteraction): Promise<void> {
   await prepare(interaction);
 
@@ -158,11 +166,13 @@ export async function actionDaily(interaction: AnyInteraction): Promise<void> {
       const remaining = Math.ceil((nextClaim.getTime() - now.getTime()) / 1000);
       const h = Math.floor(remaining / 3600);
       const m = Math.floor((remaining % 3600) / 60);
+      const currentStreak = player.loginStreak ?? 0;
       return void interaction.editReply({
         embeds: [new EmbedBuilder()
           .setColor(COLORS.warning)
           .setTitle("⏰ تم المطالبة بالفعل!")
-          .setDescription(`عُد بعد **${h} ساعة و ${m} دقيقة** لمكافأتك اليومية التالية.`)],
+          .setDescription(`عُد بعد **${h} ساعة و ${m} دقيقة** لمكافأتك اليومية التالية.`)
+          .addFields({ name: "🔥 سلسلة الدخول", value: `**${currentStreak}** يوم متتالي`, inline: true })],
         components: [dailyRow()],
       });
     }
@@ -170,8 +180,37 @@ export async function actionDaily(interaction: AnyInteraction): Promise<void> {
 
   player = await applyStaminaRegen(player);
 
-  const newGold = player.gold + DAILY_GOLD;
-  const newGems = player.gems + DAILY_GEMS;
+  // ── Login Streak Logic ────────────────────────────────────────────────────
+  const today = todayDateStr();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  let newStreak = 1;
+  if (player.lastLoginDate === yesterdayStr) {
+    newStreak = (player.loginStreak ?? 0) + 1;
+  } else if (player.lastLoginDate === today) {
+    newStreak = player.loginStreak ?? 1;
+  }
+
+  // ── Comeback Bonus (3+ days away) ────────────────────────────────────────
+  let comebackGold = 0;
+  let comebackGems = 0;
+  let isComebackBonus = false;
+  if (player.lastLoginDate && player.lastLoginDate < yesterdayStr) {
+    const daysMissed = Math.floor((now.getTime() - new Date(player.lastLoginDate).getTime()) / (1000 * 3600 * 24));
+    if (daysMissed >= 3) {
+      isComebackBonus = true;
+      comebackGold = Math.min(daysMissed * 200, 3000);
+      comebackGems = Math.min(Math.floor(daysMissed / 3), 15);
+    }
+  }
+
+  // ── Streak Milestone Gems ─────────────────────────────────────────────────
+  const milestoneGems = STREAK_MILESTONE_GEMS[newStreak] ?? 0;
+
+  const newGold = player.gold + DAILY_GOLD + comebackGold;
+  const newGems = player.gems + DAILY_GEMS + milestoneGems + comebackGems;
   const newStamina = Math.min(player.maxStamina, player.stamina + DAILY_STAMINA);
 
   await db.update(playersTable).set({
@@ -180,26 +219,48 @@ export async function actionDaily(interaction: AnyInteraction): Promise<void> {
     stamina: newStamina,
     staminaLastRegen: now,
     dailyLastClaimed: now,
+    loginStreak: newStreak,
+    lastLoginDate: today,
     updatedAt: now,
   }).where(eq(playersTable.id, player.id));
+
+  const fields: { name: string; value: string; inline: boolean }[] = [
+    { name: "💰 الذهب", value: `+${DAILY_GOLD.toLocaleString()} ← ${newGold.toLocaleString()}`, inline: true },
+    { name: "💎 الجواهر", value: `+${DAILY_GEMS} ← ${newGems}`, inline: true },
+    { name: "⚡ الطاقة", value: `+${DAILY_STAMINA} ← ${newStamina}/${player.maxStamina}`, inline: true },
+    { name: "🔥 سلسلة الدخول", value: `**${newStreak}** يوم متتالي`, inline: true },
+  ];
+
+  if (milestoneGems > 0) {
+    fields.push({ name: "🎉 مكافأة السلسلة!", value: `+${milestoneGems} 💎 (يوم ${newStreak})`, inline: true });
+  }
+  if (isComebackBonus) {
+    fields.push({ name: "🎊 مكافأة العودة!", value: `+${comebackGold.toLocaleString()} 💰 | +${comebackGems} 💎`, inline: true });
+  }
+
+  const nextMilestone = Object.keys(STREAK_MILESTONE_GEMS)
+    .map(Number)
+    .find((m) => m > newStreak);
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.success)
     .setTitle("🎁 تم استلام المكافأة اليومية!")
-    .setDescription("إليك مكافآتك اليومية:")
-    .addFields(
-      { name: "💰 الذهب", value: `+${DAILY_GOLD.toLocaleString()} ← ${newGold.toLocaleString()}`, inline: true },
-      { name: "💎 الجواهر", value: `+${DAILY_GEMS} ← ${newGems}`, inline: true },
-      { name: "⚡ الطاقة", value: `+${DAILY_STAMINA} ← ${newStamina}/${player.maxStamina}`, inline: true },
-    )
-    .setFooter({ text: "عُد غداً للمزيد!" })
+    .setDescription(isComebackBonus ? "🎊 **مرحباً بعودتك! مكافأة عودة مضافة!**" : "إليك مكافآتك اليومية:")
+    .addFields(...fields)
+    .setFooter({ text: nextMilestone ? `🔥 استمر! مكافأة بعد ${nextMilestone - newStreak} يوم (يوم ${nextMilestone})` : "🏆 أنت في أعلى مرتبة من السلسلة!" })
     .setTimestamp();
 
   await interaction.editReply({ embeds: [embed], components: [dailyRow()] });
 
-  // Quest hooks (non-blocking)
+  // Achievement + Quest hooks (non-blocking)
   generatePlayerQuests(interaction.user.id).catch(() => {});
   incrementQuestProgress(interaction.user.id, "daily_login").catch(() => {});
+
+  // Track streak achievements
+  import("./achievementActions.js").then(({ trackAchievement }) => {
+    trackAchievement(interaction.user.id, "streak_7", newStreak).catch(() => {});
+    trackAchievement(interaction.user.id, "streak_30", newStreak).catch(() => {});
+  }).catch(() => {});
 }
 
 // ── Explore (Interactive Turn-Based) ───────────────────────────────────────

@@ -15,3 +15,5 @@ export * from "./events";
 export * from "./pve";
 export * from "./gachaBanners";
 export * from "./gamePatches";
+export * from "./achievements";
+export * from "./characterEnhancements";

@@ -20,6 +20,7 @@ import Leaderboard from "@/pages/leaderboard";
 import Admin from "@/pages/admin";
 import UpdateMaker from "@/pages/update-maker";
 import Events from "@/pages/events";
+import BugFixer from "@/pages/bug-fixer";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ function Router() {
         <Route path="/admin" component={Admin} />
         <Route path="/events" component={Events} />
         <Route path="/update-maker" component={UpdateMaker} />
+        <Route path="/bug-fixer" component={BugFixer} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

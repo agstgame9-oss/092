@@ -20,6 +20,7 @@ import {
   Wand2,
   CalendarDays,
   ScrollText,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +93,7 @@ const navCategories: NavCategory[] = [
     items: [
       { href: "/admin", label: "Admin Console", icon: Gavel },
       { href: "/update-maker", label: "Update Maker", icon: Wand2 },
+      { href: "/bug-fixer", label: "Bug Fixer", icon: Bug },
     ],
   },
 ];

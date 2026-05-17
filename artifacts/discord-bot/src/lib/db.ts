@@ -29,6 +29,15 @@ export {
   expeditionsTable,
   dungeonRunsTable,
   playerBountiesTable,
+  worldBossSessionsTable,
+  worldBossDamageTable,
+  abyssProgressTable,
+  playerTitlesTable,
+  stocksTable,
+  playerStocksTable,
+  achievementsTable,
+  playerAchievementsTable,
+  characterEnhancementsTable,
 } from "@workspace/db";
 
 export type {

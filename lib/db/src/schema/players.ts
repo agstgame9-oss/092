@@ -35,6 +35,10 @@ export const playersTable = pgTable("players", {
   worldBossContributions: integer("world_boss_contributions").notNull().default(0),
   summonFragments: integer("summon_fragments").notNull().default(0),
   exploreStreak: integer("explore_streak").notNull().default(0),
+  loginStreak: integer("login_streak").notNull().default(0),
+  lastLoginDate: text("last_login_date"),
+  notificationsEnabled: boolean("notifications_enabled").notNull().default(false),
+  comebackBonus: boolean("comeback_bonus").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

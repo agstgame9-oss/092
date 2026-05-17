@@ -11,6 +11,7 @@ import bossesRouter from "./bosses";
 import adminRouter from "./admin";
 import updateMakerRouter from "./updateMaker";
 import eventsRouter from "./events";
+import bugFixerRouter from "./bugFixer";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(bossesRouter);
 router.use(adminRouter);
 router.use(updateMakerRouter);
 router.use(eventsRouter);
+router.use(bugFixerRouter);
 
 export default router;

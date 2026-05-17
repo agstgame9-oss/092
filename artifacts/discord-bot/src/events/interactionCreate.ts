@@ -89,6 +89,7 @@ import {
 import type { Move } from "../lib/gameEngine.js";
 import { handleTradeAcceptButton, handleTradeDeclineButton } from "../commands/game/trade.js";
 import { handleInventoryUse } from "../lib/inventoryActions.js";
+import { handleWorldBossAttack, handleWorldBossLeaderboard } from "../lib/worldBossActions.js";
 
 export const name = Events.InteractionCreate;
 export const once = false;
@@ -258,6 +259,27 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   if (id.startsWith("inventory:use:")) {
     const itemId = parseInt(id.slice("inventory:use:".length), 10);
     if (!isNaN(itemId)) await handleInventoryUse(interaction, itemId);
+    return;
+  }
+
+  // World Boss attack: wb:attack:SESSION_ID
+  if (id.startsWith("wb:attack:")) {
+    const sessionId = parseInt(id.slice("wb:attack:".length), 10);
+    if (!isNaN(sessionId)) await handleWorldBossAttack(interaction, sessionId, interaction.client);
+    return;
+  }
+
+  // World Boss leaderboard: wb:leaderboard:SESSION_ID
+  if (id.startsWith("wb:leaderboard:")) {
+    const sessionId = parseInt(id.slice("wb:leaderboard:".length), 10);
+    if (!isNaN(sessionId)) await handleWorldBossLeaderboard(interaction, sessionId);
+    return;
+  }
+
+  // World Boss info: wb:info:SESSION_ID (refresh view)
+  if (id.startsWith("wb:info:")) {
+    const sessionId = parseInt(id.slice("wb:info:".length), 10);
+    if (!isNaN(sessionId)) await handleWorldBossLeaderboard(interaction, sessionId);
     return;
   }
 }
