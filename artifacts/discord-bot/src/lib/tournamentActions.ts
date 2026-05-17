@@ -13,6 +13,14 @@ import { buildFighterForPlayer, resolveTournamentMatch } from "./tournamentEngin
 import { pvpBattles } from "./battleState.js";
 import { pvpMoveRow } from "./buttons.js";
 import { getElementMultiplier } from "./gameEngine.js";
+import {
+  announceRegistrationOpen,
+  announceParticipantJoined,
+  announceTournamentStarted,
+  announceNewRound,
+  announceChampion,
+  announceTournamentCancelled,
+} from "./tournamentAnnouncer.js";
 
 type AnyInteraction = ChatInputCommandInteraction | ButtonInteraction;
 
@@ -189,6 +197,7 @@ export async function actionTournamentJoin(interaction: AnyInteraction, tourname
 
   await db.insert(tournamentParticipantsTable).values({ tournamentId: tournament.id, discordId: interaction.user.id, username: player.username });
   const newCount = (cnt?.c ?? 0) + 1;
+  announceParticipantJoined(interaction.client, tournament, player.username, newCount).catch(console.error);
 
   const prizes = (tournament.prizes as Array<{ rank: number; gold: number; gems: number; title?: string }>) ?? [];
   const firstPrize = prizes.find(p => p.rank === 1);
@@ -363,6 +372,9 @@ export async function actionAdminStartTournament(interaction: ButtonInteraction 
   await db.update(tournamentsTable).set({ status: "active", currentRound: 1, totalRounds, bracket, updatedAt: new Date() })
     .where(eq(tournamentsTable.id, t.id));
 
+  const updatedT = { ...t, status: "active" as const, currentRound: 1, totalRounds, bracket };
+  announceTournamentStarted(interaction.client, updatedT, participants, bracket).catch(console.error);
+
   const matchCount = Math.floor(participants.length / 2);
   const byes = participants.length % 2;
 
@@ -436,7 +448,16 @@ export async function actionAdminNextRound(interaction: ButtonInteraction): Prom
       }
     }
 
-    await db.update(tournamentsTable).set({ status: "completed", bracket, updatedAt: new Date() }).where(eq(tournamentsTable.id, t.id));
+    await db.update(tournamentsTable).set({ status: "completed", bracket, winnerId: champion?.discordId ?? null, winnerUsername: champion?.username ?? null, updatedAt: new Date() }).where(eq(tournamentsTable.id, t.id));
+
+    // Announce champion to the tournament channel
+    if (champion) {
+      const runnerUpId = finalMatch?.player1 === champion.discordId ? finalMatch?.player2 : finalMatch?.player1;
+      const runnerUp = runnerUpId ? participants.find(p => p.discordId === runnerUpId) ?? null : null;
+      const completedT = { ...t, status: "completed" as const, bracket, winnerId: champion.discordId, winnerUsername: champion.username };
+      announceChampion(interaction.client, completedT, champion, runnerUp, bracket, participants).catch(console.error);
+    }
+
     return void interaction.editReply({
       embeds: [new EmbedBuilder()
         .setColor(COLORS.gold)
@@ -466,6 +487,11 @@ export async function actionAdminNextRound(interaction: ButtonInteraction): Prom
 
   await db.update(tournamentsTable).set({ bracket: allBracket, currentRound: nextRound, status, updatedAt: new Date() })
     .where(eq(tournamentsTable.id, t.id));
+
+  // Announce new round to the tournament channel
+  const allParticipants = await db.select().from(tournamentParticipantsTable).where(eq(tournamentParticipantsTable.tournamentId, t.id));
+  const updatedTournament = { ...t, currentRound: nextRound, totalRounds: t.totalRounds, status: status as "active" | "finals" | "completed" | "registration" | "cancelled" };
+  announceNewRound(interaction.client, updatedTournament, allParticipants, allBracket, nextRound).catch(console.error);
 
   await interaction.editReply({
     embeds: [new EmbedBuilder()
@@ -501,6 +527,7 @@ export async function actionAdminCancelTournament(interaction: ButtonInteraction
     return void interaction.editReply({ embeds: [errorEmbed("لا توجد بطولة نشطة لإلغائها.")] });
   }
   await db.update(tournamentsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(tournamentsTable.id, t.id));
+  announceTournamentCancelled(interaction.client, t, interaction.user.username).catch(console.error);
   await interaction.editReply({ embeds: [successEmbed(`تم إلغاء بطولة **${t.name}**.`)] });
 }
 
@@ -827,7 +854,7 @@ export async function handleTournamentModalSubmit(interaction: ModalSubmitIntera
   ];
   const totalRounds = Math.ceil(Math.log2(size));
 
-  await db.insert(tournamentsTable).values({
+  const [inserted] = await db.insert(tournamentsTable).values({
     name,
     guildServerId: interaction.guildId!,
     channelId: interaction.channelId!,
@@ -837,7 +864,11 @@ export async function handleTournamentModalSubmit(interaction: ModalSubmitIntera
     prizePool,
     prizes,
     status: "registration",
-  });
+  }).returning();
+
+  if (inserted) {
+    announceRegistrationOpen(interaction.client, inserted, 0).catch(console.error);
+  }
 
   const prizeLines = prizes.map(p => {
     const medal = p.rank === 1 ? "🥇" : p.rank === 2 ? "🥈" : "🥉";

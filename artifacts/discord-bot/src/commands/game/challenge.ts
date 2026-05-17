@@ -3,7 +3,8 @@ import {
   EmbedBuilder, ButtonInteraction,
 } from "discord.js";
 import { resolveTournamentMatch } from "../../lib/tournamentEngine.js";
-import { db, playersTable, playerCharactersTable, charactersTable, battlesTable } from "../../lib/db.js";
+import { announceMatchResult } from "../../lib/tournamentAnnouncer.js";
+import { db, playersTable, playerCharactersTable, charactersTable, battlesTable, tournamentsTable, tournamentParticipantsTable } from "../../lib/db.js";
 import { eq } from "drizzle-orm";
 import { resolveRound, addXP, getElementMultiplier } from "../../lib/gameEngine.js";
 import { COLORS, RARITY_EMOJI, ELEMENT_EMOJI, errorEmbed } from "../../lib/embeds.js";
@@ -204,7 +205,27 @@ async function resolvePvpRound(interaction: ButtonInteraction, battle: PvpBattle
     await interaction.editReply({ embeds: [resultEmbed], components: [] });
     if (battle.tournamentId !== undefined && battle.tournamentMatchId) {
       const winnerId = attackerWon ? battle.attacker.discordId : battle.defender.discordId;
+      const loserId = attackerWon ? battle.defender.discordId : battle.attacker.discordId;
+      const winnerName = attackerWon ? battle.attacker.displayName : battle.defender.displayName;
+      const loserName = attackerWon ? battle.defender.displayName : battle.attacker.displayName;
       resolveTournamentMatch(battle.tournamentId, battle.tournamentMatchId, winnerId).catch(console.error);
+      // Announce match result to tournament channel
+      (async () => {
+        const [t] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, battle.tournamentId!));
+        if (!t) return;
+        const isFinal = t.currentRound === t.totalRounds;
+        announceMatchResult(
+          interaction.client,
+          t.channelId,
+          t.name,
+          t.currentRound,
+          t.totalRounds,
+          winnerName,
+          winnerId,
+          loserName,
+          isFinal,
+        ).catch(console.error);
+      })().catch(console.error);
     }
     return;
   }
