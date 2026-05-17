@@ -710,4 +710,228 @@ router.post("/update-maker/publish", async (req, res) => {
   });
 });
 
+// ─────────────────────────────────────────────
+// SERVER COUNT (how many have announcement channels)
+// ─────────────────────────────────────────────
+
+router.get("/update-maker/server-count", async (req, res) => {
+  try {
+    const servers = await db.select().from(serverConfigTable);
+    const total = servers.filter((s: typeof servers[0]) => s.guildId !== "__global__").length;
+    const withChannel = servers.filter((s: typeof servers[0]) => s.guildId !== "__global__" && s.announcementChannelId).length;
+    res.json({ total, withChannel });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get server count");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─────────────────────────────────────────────
+// BROADCAST TO ALL SERVERS
+// ─────────────────────────────────────────────
+
+router.post("/update-maker/broadcast-all", async (req, res) => {
+  const {
+    version,
+    title,
+    changelog,
+    extraMessage,
+    pingEveryone,
+  } = req.body as {
+    version: string;
+    title: string;
+    changelog: {
+      newCharacters: string[];
+      balanceChanges: string[];
+      newBanners: string[];
+      systemChanges: string[];
+      bugFixes: string[];
+      other: string[];
+    };
+    extraMessage?: string;
+    pingEveryone?: boolean;
+  };
+
+  if (!version || !title) {
+    res.status(400).json({ error: "version and title are required" });
+    return;
+  }
+
+  if (!DISCORD_TOKEN) {
+    res.status(400).json({ error: "DISCORD_TOKEN not configured on the server" });
+    return;
+  }
+
+  const servers = await db.select().from(serverConfigTable);
+  const targets = servers.filter((s: typeof servers[0]) => s.guildId !== "__global__" && s.announcementChannelId);
+
+  if (targets.length === 0) {
+    res.json({ success: true, totalServers: 0, successCount: 0, failCount: 0, results: [], patchId: null });
+    return;
+  }
+
+  const fields: { name: string; value: string }[] = [];
+  const sections: { key: keyof typeof changelog; label: string }[] = [
+    { key: "newCharacters",  label: "🌟 New Characters"  },
+    { key: "balanceChanges", label: "⚔️ Balance Changes"  },
+    { key: "newBanners",     label: "🎰 New Banners"      },
+    { key: "systemChanges",  label: "⚙️ System Changes"   },
+    { key: "bugFixes",       label: "🐛 Bug Fixes"        },
+    { key: "other",          label: "📝 Other"            },
+  ];
+  for (const { key, label } of sections) {
+    const items = changelog[key];
+    if (items && items.length > 0) {
+      fields.push({ name: label, value: items.map(i => `• ${i}`).join("\n") });
+    }
+  }
+
+  const totalChanges = Object.values(changelog).flat().length;
+
+  const embed = {
+    title: `🎮 ${title}`,
+    description: [
+      `**Version ${version}** — Anime Multiverse Arena`,
+      extraMessage ? `\n${extraMessage}` : "",
+    ].join(""),
+    color: 0x7c3aed,
+    fields,
+    footer: { text: `Anime Multiverse Arena Update • ${new Date().toUTCString()}` },
+    timestamp: new Date().toISOString(),
+  };
+
+  // Save patch record
+  const [patch] = await db
+    .insert(gamePatchesTable)
+    .values({
+      version,
+      title,
+      changelog,
+      publishedBy: "dashboard-broadcast-all",
+    })
+    .returning();
+
+  // Trigger bot hot-reload
+  try {
+    await fetch(`${BOT_WEBHOOK_URL}/reload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-webhook-secret": BOT_WEBHOOK_SECRET },
+      body: JSON.stringify({ reason: `Broadcast ${version}: ${title}`, patchId: patch.id }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch { /* bot may be offline */ }
+
+  // Broadcast to every server's announcement channel
+  const results: { guildId: string; guildName: string | null; success: boolean; error?: string }[] = [];
+
+  for (const server of targets) {
+    try {
+      const content = pingEveryone ? "@everyone 📣 **New Game Update!**" : "📣 **New Game Update!**";
+      const discordRes = await fetch(
+        `https://discord.com/api/v10/channels/${server.announcementChannelId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${DISCORD_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content, embeds: [embed] }),
+          signal: AbortSignal.timeout(8000),
+        }
+      );
+      if (discordRes.ok) {
+        results.push({ guildId: server.guildId, guildName: server.guildName, success: true });
+      } else {
+        const body = await discordRes.text().catch(() => "");
+        results.push({ guildId: server.guildId, guildName: server.guildName, success: false, error: `HTTP ${discordRes.status}` });
+        req.log.warn({ status: discordRes.status, body }, `Discord send failed for guild ${server.guildId}`);
+      }
+    } catch (err) {
+      results.push({ guildId: server.guildId, guildName: server.guildName, success: false, error: String(err) });
+    }
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  const failCount = results.filter(r => !r.success).length;
+
+  await db
+    .update(gamePatchesTable)
+    .set({ discordNotified: successCount > 0 })
+    .where(eq(gamePatchesTable.id, patch.id));
+
+  await db.insert(adminLogsTable).values({
+    adminDiscordId: "dashboard",
+    adminUsername: "Dashboard Admin",
+    guildServerId: "dashboard",
+    action: "broadcast:all",
+    details: JSON.stringify({ version, title, totalChanges, successCount, failCount, totalServers: targets.length }),
+  });
+
+  res.json({
+    success: true,
+    patchId: patch.id,
+    totalServers: targets.length,
+    successCount,
+    failCount,
+    results,
+  });
+});
+
+// ─────────────────────────────────────────────
+// MASS REWARD TO ALL PLAYERS
+// ─────────────────────────────────────────────
+
+router.post("/update-maker/rewards/mass", async (req, res) => {
+  const { gold, gems, xp, stamina, reason } = req.body as {
+    gold?: number;
+    gems?: number;
+    xp?: number;
+    stamina?: number;
+    reason?: string;
+  };
+
+  if (!gold && !gems && !xp && !stamina) {
+    res.status(400).json({ error: "Provide at least one reward (gold, gems, xp, or stamina)" });
+    return;
+  }
+
+  const { sql: drizzleSql } = await import("drizzle-orm");
+
+  const allPlayers = await db
+    .select({
+      discordId: playersTable.discordId,
+      gold: playersTable.gold,
+      gems: playersTable.gems,
+      xp: playersTable.xp,
+      stamina: playersTable.stamina,
+      maxStamina: playersTable.maxStamina,
+    })
+    .from(playersTable)
+    .where(eq(playersTable.isBanned, false));
+
+  if (allPlayers.length === 0) {
+    res.json({ success: true, playersRewarded: 0 });
+    return;
+  }
+
+  for (const player of allPlayers) {
+    const update: Record<string, unknown> = { updatedAt: new Date() };
+    if (gold) update.gold = player.gold + gold;
+    if (gems) update.gems = player.gems + gems;
+    if (xp) update.xp = player.xp + xp;
+    if (stamina) update.stamina = Math.min(player.stamina + stamina, player.maxStamina);
+    await db.update(playersTable).set(update).where(eq(playersTable.discordId, player.discordId));
+  }
+
+  await db.insert(adminLogsTable).values({
+    adminDiscordId: "dashboard",
+    adminUsername: "Dashboard Admin",
+    guildServerId: "dashboard",
+    action: "reward:mass",
+    details: JSON.stringify({ gold, gems, xp, stamina, reason, playerCount: allPlayers.length }),
+  });
+
+  res.json({ success: true, playersRewarded: allPlayers.length });
+});
+
 export default router;

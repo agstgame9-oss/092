@@ -6,6 +6,7 @@ import {
   XCircle, Loader2, ChevronDown, ChevronUp, Globe, Sparkles, Send,
   History, Star, Rocket, Zap, Shield, Radio, AlertTriangle,
   BookOpen, Bug, MoreHorizontal, CheckCheck, ServerCrash, RefreshCw,
+  Wifi, Users, Flame, Crown, Activity,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1704,6 +1705,399 @@ function PublishTab() {
 }
 
 // ─────────────────────────────────────────────
+// MEGA BROADCAST TAB
+// ─────────────────────────────────────────────
+
+interface BroadcastResult {
+  guildId: string;
+  guildName: string | null;
+  success: boolean;
+  error?: string;
+}
+
+interface BroadcastResponse {
+  success: boolean;
+  patchId: number | null;
+  totalServers: number;
+  successCount: number;
+  failCount: number;
+  results: BroadcastResult[];
+}
+
+function MegaBroadcastTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [version, setVersion] = useState("v1.0.0");
+  const [title, setTitle] = useState("");
+  const [extraMessage, setExtraMessage] = useState("");
+  const [pingEveryone, setPingEveryone] = useState(false);
+  const [changelog, setChangelog] = useState<Record<ChangelogKey, string[]>>({
+    newCharacters: [], balanceChanges: [], newBanners: [],
+    systemChanges: [], bugFixes: [], other: [],
+  });
+  const [broadcastResult, setBroadcastResult] = useState<BroadcastResponse | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const { data: serverCount } = useQuery({
+    queryKey: ["um-server-count"],
+    queryFn: () => apiFetch(`${API}/server-count`),
+    refetchInterval: 30000,
+  });
+  const sc = serverCount as { total: number; withChannel: number } | undefined;
+
+  const massRewardMut = useMutation({
+    mutationFn: (payload: { gold: number; gems: number; xp: number; stamina: number; reason: string }) =>
+      apiFetch(`${API}/rewards/mass`, { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: (data: Record<string, unknown>) => {
+      qc.invalidateQueries({ queryKey: ["um-server-count"] });
+      toast({ title: `✅ Mass reward sent to ${data.playersRewarded} players!` });
+    },
+    onError: (e: Error) => toast({ title: "Mass reward failed", description: e.message, variant: "destructive" }),
+  });
+
+  const broadcastMut = useMutation({
+    mutationFn: () =>
+      apiFetch(`${API}/broadcast-all`, {
+        method: "POST",
+        body: JSON.stringify({ version, title, changelog, extraMessage: extraMessage || undefined, pingEveryone }),
+      }),
+    onSuccess: (data: BroadcastResponse) => {
+      setBroadcastResult(data);
+      setConfirmed(false);
+      qc.invalidateQueries({ queryKey: ["um-patches"] });
+      if (data.successCount > 0) {
+        toast({ title: `🚀 Broadcast complete! Reached ${data.successCount}/${data.totalServers} servers.` });
+      } else {
+        toast({ title: "Broadcast sent (0 servers had announcement channels configured)", variant: "destructive" });
+      }
+    },
+    onError: (e: Error) => {
+      setConfirmed(false);
+      toast({ title: "Broadcast failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const totalChanges = Object.values(changelog).flat().length;
+  const canBroadcast = version.trim() && title.trim() && totalChanges > 0;
+
+  return (
+    <div className="space-y-6">
+      {/* ── Header Stats Bar ── */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-violet-500/30 bg-violet-500/5">
+          <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+            <Globe className="w-5 h-5 text-violet-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{sc?.total ?? "—"}</p>
+            <p className="text-xs text-muted-foreground">Total Servers</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-green-500/30 bg-green-500/5">
+          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
+            <Wifi className="w-5 h-5 text-green-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-green-400">{sc?.withChannel ?? "—"}</p>
+            <p className="text-xs text-muted-foreground">Will Receive Broadcast</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5">
+          <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+            <Activity className="w-5 h-5 text-yellow-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-yellow-400">{totalChanges}</p>
+            <p className="text-xs text-muted-foreground">Changelog Entries</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* ── Left: Composer ── */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-400" /> Update Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Version</Label>
+                  <Input placeholder="v2.0.0" value={version} onChange={e => setVersion(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Title</Label>
+                  <Input placeholder="The Grand Update" value={title} onChange={e => setTitle(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Extra Message <span className="text-xs text-muted-foreground">(optional — shown below version)</span></Label>
+                <Input
+                  placeholder="🎉 Thank you for 1000 players! Enjoy the update!"
+                  value={extraMessage}
+                  onChange={e => setExtraMessage(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <Switch checked={pingEveryone} onCheckedChange={setPingEveryone} />
+                <div>
+                  <Label className="text-sm">Ping @everyone</Label>
+                  <p className="text-xs text-muted-foreground">Sends @everyone mention before the embed. Use sparingly.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-primary" /> Changelog
+              </CardTitle>
+              <CardDescription>Add entries per section. Press Enter or + to add.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {CHANGELOG_SECTIONS.map(sec => (
+                <ChangelogSectionEditor
+                  key={sec.key}
+                  section={sec}
+                  items={changelog[sec.key]}
+                  onChange={items => setChangelog(cl => ({ ...cl, [sec.key]: items }))}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Right: Preview + Launch ── */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Send className="w-4 h-4 text-primary" /> Discord Embed Preview
+              </CardTitle>
+              <CardDescription>Exactly what players will see in each server's announcement channel.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DiscordEmbedPreview version={version} title={title} changelog={changelog} />
+            </CardContent>
+          </Card>
+
+          {/* ── BROADCAST BUTTON ── */}
+          <div className="rounded-2xl border-2 border-violet-500/40 bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-transparent p-6 space-y-4">
+            <div className="text-center space-y-1">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <Radio className="w-6 h-6 text-violet-400" />
+                <h3 className="font-bold text-lg">Mega Broadcast</h3>
+                <Radio className="w-6 h-6 text-violet-400" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This will send the update embed to <span className="font-semibold text-violet-300">{sc?.withChannel ?? 0} server{(sc?.withChannel ?? 0) !== 1 ? "s" : ""}</span> simultaneously.
+              </p>
+              {pingEveryone && (
+                <p className="text-xs text-yellow-400 flex items-center justify-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> @everyone mention is ON
+                </p>
+              )}
+            </div>
+
+            {!confirmed ? (
+              <Button
+                className="w-full h-14 text-base font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 shadow-lg shadow-violet-500/25 transition-all"
+                disabled={!canBroadcast || broadcastMut.isPending}
+                onClick={() => setConfirmed(true)}
+              >
+                <Crown className="w-5 h-5 mr-2" />
+                BROADCAST TO ALL SERVERS
+              </Button>
+            ) : (
+              <div className="space-y-3 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+                <p className="text-sm font-semibold text-yellow-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Confirm Broadcast
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  You are about to send <span className="font-semibold text-foreground">"{title}"</span> ({version}) to <span className="font-semibold text-violet-300">{sc?.withChannel ?? 0} servers</span>. This cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 bg-violet-600 hover:bg-violet-500 font-bold"
+                    onClick={() => broadcastMut.mutate()}
+                    disabled={broadcastMut.isPending}
+                  >
+                    {broadcastMut.isPending
+                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Broadcasting…</>
+                      : <><Rocket className="w-4 h-4 mr-2" /> Confirm & Broadcast</>}
+                  </Button>
+                  <Button variant="outline" onClick={() => setConfirmed(false)} disabled={broadcastMut.isPending}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!canBroadcast && (
+              <p className="text-xs text-center text-muted-foreground">
+                {!version.trim() || !title.trim() ? "Enter version and title to continue." : "Add at least one changelog entry to broadcast."}
+              </p>
+            )}
+          </div>
+
+          {/* ── Results ── */}
+          {broadcastResult && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="w-4 h-4" /> Broadcast Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-lg bg-secondary">
+                    <p className="text-xl font-bold">{broadcastResult.totalServers}</p>
+                    <p className="text-xs text-muted-foreground">Targeted</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-xl font-bold text-green-400">{broadcastResult.successCount}</p>
+                    <p className="text-xs text-muted-foreground">Delivered</p>
+                  </div>
+                  <div className={cn("p-3 rounded-lg", broadcastResult.failCount > 0 ? "bg-red-500/10 border border-red-500/20" : "bg-secondary")}>
+                    <p className={cn("text-xl font-bold", broadcastResult.failCount > 0 ? "text-red-400" : "text-muted-foreground")}>{broadcastResult.failCount}</p>
+                    <p className="text-xs text-muted-foreground">Failed</p>
+                  </div>
+                </div>
+
+                {broadcastResult.results.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {broadcastResult.results.map((r) => (
+                      <div key={r.guildId} className={cn("flex items-center justify-between px-3 py-2 rounded-lg text-xs", r.success ? "bg-green-500/5 border border-green-500/20" : "bg-red-500/5 border border-red-500/20")}>
+                        <div className="flex items-center gap-2">
+                          {r.success
+                            ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                            : <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+                          <span className="font-medium">{r.guildName ?? r.guildId}</span>
+                        </div>
+                        {!r.success && r.error && (
+                          <span className="text-red-400 text-xs">{r.error}</span>
+                        )}
+                        {r.success && <span className="text-green-400">Delivered</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {broadcastResult.totalServers === 0 && (
+                  <p className="text-sm text-center text-muted-foreground py-2">
+                    No servers have announcement channels configured. Use <code className="text-xs">/setup</code> in each Discord server to configure one.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mass Reward Section ── */}
+      <MassRewardSection />
+    </div>
+  );
+}
+
+function MassRewardSection() {
+  const { toast } = useToast();
+  const [massReward, setMassReward] = useState({ gold: 0, gems: 0, xp: 0, stamina: 0, reason: "" });
+  const [massConfirmed, setMassConfirmed] = useState(false);
+  const [massResult, setMassResult] = useState<{ playersRewarded: number } | null>(null);
+
+  const massRewardMut = useMutation({
+    mutationFn: () =>
+      apiFetch(`${API}/rewards/mass`, { method: "POST", body: JSON.stringify(massReward) }),
+    onSuccess: (data: Record<string, unknown>) => {
+      setMassResult({ playersRewarded: Number(data.playersRewarded) });
+      setMassConfirmed(false);
+      setMassReward({ gold: 0, gems: 0, xp: 0, stamina: 0, reason: "" });
+      toast({ title: `✅ Mass reward sent to ${data.playersRewarded} players!` });
+    },
+    onError: (e: Error) => {
+      setMassConfirmed(false);
+      toast({ title: "Mass reward failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const hasAny = massReward.gold > 0 || massReward.gems > 0 || massReward.xp > 0 || massReward.stamina > 0;
+
+  return (
+    <Card className="border-orange-500/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-orange-400" /> Mass Reward — All Players
+        </CardTitle>
+        <CardDescription>Send gold, gems, XP, or stamina to every non-banned player at once. Perfect for maintenance compensation or celebration rewards.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="space-y-1">
+            <Label>💰 Gold</Label>
+            <Input type="number" min="0" value={massReward.gold} onChange={e => setMassReward(r => ({ ...r, gold: Number(e.target.value) }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>💎 Gems</Label>
+            <Input type="number" min="0" value={massReward.gems} onChange={e => setMassReward(r => ({ ...r, gems: Number(e.target.value) }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>⭐ XP</Label>
+            <Input type="number" min="0" value={massReward.xp} onChange={e => setMassReward(r => ({ ...r, xp: Number(e.target.value) }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>⚡ Stamina</Label>
+            <Input type="number" min="0" value={massReward.stamina} onChange={e => setMassReward(r => ({ ...r, stamina: Number(e.target.value) }))} />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label>Reason <span className="text-xs text-muted-foreground">(optional, for logs)</span></Label>
+          <Input placeholder="Server anniversary reward, maintenance compensation…" value={massReward.reason} onChange={e => setMassReward(r => ({ ...r, reason: e.target.value }))} />
+        </div>
+
+        {!massConfirmed ? (
+          <Button
+            className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold h-11"
+            disabled={!hasAny || massRewardMut.isPending}
+            onClick={() => setMassConfirmed(true)}
+          >
+            <Gift className="w-4 h-4 mr-2" /> Send to All Players
+          </Button>
+        ) : (
+          <div className="space-y-2 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30">
+            <p className="text-sm font-semibold text-orange-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" /> This will give rewards to every player. Confirm?
+            </p>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-orange-600 hover:bg-orange-500 font-bold"
+                onClick={() => massRewardMut.mutate()}
+                disabled={massRewardMut.isPending}
+              >
+                {massRewardMut.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending…</> : "✅ Confirm Mass Reward"}
+              </Button>
+              <Button variant="outline" onClick={() => setMassConfirmed(false)} disabled={massRewardMut.isPending}>Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {massResult && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400">
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <p className="text-sm font-semibold">Rewards delivered to {massResult.playersRewarded} players!</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────
 // MAIN PAGE
 // ─────────────────────────────────────────────
 
@@ -1721,8 +2115,11 @@ export default function UpdateMaker() {
         </div>
       </div>
 
-      <Tabs defaultValue="characters">
+      <Tabs defaultValue="mega-broadcast">
         <TabsList className="flex-wrap h-auto gap-1 mb-2">
+          <TabsTrigger value="mega-broadcast" className="gap-1.5 bg-violet-500/10 text-violet-300 data-[state=active]:bg-violet-600 data-[state=active]:text-white font-semibold">
+            <Radio className="w-3.5 h-3.5" /> ⚡ Mega Broadcast
+          </TabsTrigger>
           <TabsTrigger value="characters" className="gap-1.5"><Swords className="w-3.5 h-3.5" /> Characters</TabsTrigger>
           <TabsTrigger value="bosses" className="gap-1.5"><ShieldAlert className="w-3.5 h-3.5" /> Bosses</TabsTrigger>
           <TabsTrigger value="items" className="gap-1.5"><Package className="w-3.5 h-3.5" /> Items</TabsTrigger>
@@ -1731,11 +2128,12 @@ export default function UpdateMaker() {
           <TabsTrigger value="economy" className="gap-1.5"><Coins className="w-3.5 h-3.5" /> Economy</TabsTrigger>
           <TabsTrigger value="rewards" className="gap-1.5"><Gift className="w-3.5 h-3.5" /> Rewards</TabsTrigger>
           <TabsTrigger value="announcements" className="gap-1.5"><Megaphone className="w-3.5 h-3.5" /> Announce</TabsTrigger>
-          <TabsTrigger value="publish" className="gap-1.5 bg-primary/10 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="publish" className="gap-1.5">
             <Rocket className="w-3.5 h-3.5" /> Publish Update
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="mega-broadcast"><MegaBroadcastTab /></TabsContent>
         <TabsContent value="characters"><CharactersTab /></TabsContent>
         <TabsContent value="bosses"><BossesTab /></TabsContent>
         <TabsContent value="items"><ItemsTab /></TabsContent>
