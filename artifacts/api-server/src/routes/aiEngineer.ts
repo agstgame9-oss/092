@@ -20,40 +20,45 @@ const EXCLUDED = new Set(["node_modules", ".git", "dist", "build", ".pnpm", ".ca
 const sessions = new Map<string, OpenAI.Chat.ChatCompletionMessageParam[]>();
 
 // ── SYSTEM PROMPT ────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `أنت مهندس برمجيات AI متخصص متضمّن داخل لوحة تحكم بوت RPG يسمى "Anime Multiverse Arena".
-
-## صلاحياتك الكاملة:
-- قراءة أي ملف في المشروع
-- كتابة وتعديل الكود مباشرة
-- تشغيل TypeScript typecheck
-- اكتشاف وإصلاح الأخطاء تلقائياً
-- إضافة ميزات جديدة للبوت
+const SYSTEM_PROMPT = `أنت مهندس AI متخصص مدمج في لوحة تحكم بوت RPG يسمى "Anime Multiverse Arena" (AMA).
+لديك صلاحيات كاملة لقراءة وكتابة ملفات المشروع وتعديل البوت مباشرة.
 
 ## هيكل المشروع:
-- artifacts/discord-bot/src/ → كود البوت (TypeScript)
-  - commands/game/ → أوامر اللاعبين (/start, /summon, /explore ...)
-  - commands/admin/ → أوامر الأدمن
-  - commands/guild/ → أوامر النقابات
-  - lib/actions.ts → المنطق المشترك
-  - lib/gameEngine.ts → محرك اللعبة
-  - lib/embeds.ts → تصميم الرسائل
-  - events/ → أحداث Discord
-- lib/db/src/schema/ → مخططات قاعدة البيانات (Drizzle ORM)
-- artifacts/api-server/src/ → API Server (Express 5)
-- artifacts/dashboard/src/ → واجهة الويب (React + Vite)
+- artifacts/discord-bot/src/commands/game/ → أوامر اللاعبين
+- artifacts/discord-bot/src/commands/admin/ → أوامر الأدمن
+- artifacts/discord-bot/src/commands/guild/ → أوامر النقابات
+- artifacts/discord-bot/src/lib/actions.ts → المنطق المشترك (يقبل ChatInputCommandInteraction | ButtonInteraction)
+- artifacts/discord-bot/src/lib/gameEngine.ts → محرك اللعبة
+- artifacts/discord-bot/src/lib/embeds.ts → تصميم الرسائل والألوان
+- artifacts/discord-bot/src/lib/buttons.ts → بناء أزرار Discord
+- artifacts/discord-bot/src/events/interactionCreate.ts → router للأوامر والأزرار
+- lib/db/src/schema/ → Drizzle ORM schemas (source of truth)
+- artifacts/api-server/src/ → Express 5 API
+- artifacts/dashboard/src/ → React + Vite dashboard
 
 ## تقنيات المشروع:
-- TypeScript 5.9، Node.js 24، Discord.js v14
+- TypeScript 5.9، Node.js 24، Discord.js v14، pnpm workspaces
 - PostgreSQL + Drizzle ORM، Zod v4
-- pnpm workspaces
+- الأزرار تستخدم deferUpdate()، الأوامر تستخدم deferReply()
+- نمط Cooldown: delete+insert (بدون unique constraint)
 
-## قواعد المهندس:
-1. دائماً اقرأ الملف قبل تعديله
-2. اذكر رقم السطر عند الإشارة للكود
-3. عند اقتراح تعديل، أعطِ الكود الكامل الجاهز للنسخ
-4. اذكر إذا كان التعديل يحتاج DB push أو إعادة تشغيل
-5. رد بالعربية دائماً
-6. كن دقيقاً ومباشراً — لا حشو`;
+## قواعدك الصارمة عند الطلب بإضافة أو تعديل شيء:
+1. اكتب الكود الكامل والجاهز للتطبيق فوراً — لا تقل "يمكنك تعديل..." بل اكتب التعديل نفسه
+2. لكل أمر جديد: اكتب الملف الكامل بنفس هيكل الأوامر الموجودة
+3. وضّح في النهاية: هل يحتاج DB push؟ هل يحتاج تشغيل deploy-commands؟ هل يحتاج إعادة تشغيل البوت؟
+4. إذا كان الطلب يحتاج قراءة ملف أولاً، قل: "أحتاج رؤية محتوى [اسم الملف] أولاً — افتحه من المستكشف"
+5. رد بالعربية دائماً، كن دقيقاً ومباشراً
+
+## مثال على هيكل أمر جديد:
+\`\`\`typescript
+import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
+import { db } from "../../lib/db.js";
+export const data = new SlashCommandBuilder().setName("...").setDescription("...");
+export async function execute(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply();
+  // منطق الأمر
+}
+\`\`\``;
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -142,6 +147,46 @@ router.post("/ai-engineer/write-file", (req, res) => {
   }
 });
 
+// POST /api/ai-engineer/apply-code — extract first code block from text and write to file
+router.post("/ai-engineer/apply-code", (req, res) => {
+  try {
+    const { filePath, aiText } = req.body as { filePath: string; aiText: string };
+    const abs = safePath(filePath);
+
+    // Extract first fenced code block (```ts / ```typescript / ``` plain)
+    const match = aiText.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
+    if (!match) return void res.status(400).json({ error: "لم أجد كود داخل رسالة الـ AI" });
+
+    const code = match[1];
+
+    // Backup original
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    if (fs.existsSync(abs)) {
+      fs.copyFileSync(abs, path.join(BACKUP_DIR, `${path.basename(abs)}.${Date.now()}.bak`));
+    }
+
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, code, "utf8");
+    res.json({ success: true, path: path.relative(WORKSPACE, abs), lines: code.split("\n").length });
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
+// POST /api/ai-engineer/create-file — create a brand new file (for new commands etc.)
+router.post("/ai-engineer/create-file", (req, res) => {
+  try {
+    const { filePath, content } = req.body as { filePath: string; content: string };
+    const abs = safePath(filePath);
+    if (fs.existsSync(abs)) return void res.status(409).json({ error: "الملف موجود بالفعل — استخدم write-file للتعديل" });
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content, "utf8");
+    res.json({ success: true, path: path.relative(WORKSPACE, abs) });
+  } catch (err) {
+    res.status(400).json({ error: String(err) });
+  }
+});
+
 // POST /api/ai-engineer/run-cmd — run safe commands
 const SAFE_CMDS = [
   /^pnpm\s+(run\s+)?(typecheck|build|typecheck:libs|typecheck:all)(\s|$)/,
@@ -149,6 +194,8 @@ const SAFE_CMDS = [
   /^pnpm\s+--filter\s+@workspace\/db\s+run\s+push(\s|$)/,
   /^node\s+--version(\s|$)/,
   /^pnpm\s+--version(\s|$)/,
+  /^pkill\s+-f\s+"tsx src\/index\.ts"(\s|$)/,
+  /^pkill\s+-SIGTERM\s+-f\s+"tsx"(\s|$)/,
 ];
 
 router.post("/ai-engineer/run-cmd", async (req, res) => {
