@@ -21,6 +21,7 @@ import {
   CalendarDays,
   ScrollText,
   Bug,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,7 @@ const navCategories: NavCategory[] = [
       { href: "/admin", label: "Admin Console", icon: Gavel },
       { href: "/update-maker", label: "Update Maker", icon: Wand2 },
       { href: "/bug-fixer", label: "Bug Fixer", icon: Bug },
+      { href: "/ai-engineer", label: "AI Engineer", icon: Bot },
     ],
   },
 ];

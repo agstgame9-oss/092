@@ -21,6 +21,7 @@ import Admin from "@/pages/admin";
 import UpdateMaker from "@/pages/update-maker";
 import Events from "@/pages/events";
 import BugFixer from "@/pages/bug-fixer";
+import AIEngineer from "@/pages/ai-engineer";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ function Router() {
         <Route path="/events" component={Events} />
         <Route path="/update-maker" component={UpdateMaker} />
         <Route path="/bug-fixer" component={BugFixer} />
+        <Route path="/ai-engineer" component={AIEngineer} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

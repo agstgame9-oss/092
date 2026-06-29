@@ -12,6 +12,7 @@ import adminRouter from "./admin";
 import updateMakerRouter from "./updateMaker";
 import eventsRouter from "./events";
 import bugFixerRouter from "./bugFixer";
+import aiEngineerRouter from "./aiEngineer";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(adminRouter);
 router.use(updateMakerRouter);
 router.use(eventsRouter);
 router.use(bugFixerRouter);
+router.use(aiEngineerRouter);
 
 export default router;
